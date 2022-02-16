@@ -1,3 +1,4 @@
+#%%
 from matplotlib import pyplot as plt
 import cv2
 from PIL import Image
@@ -7,17 +8,17 @@ import numpy as np
 
 ##############################################################################################
 #이미지읽기, 그레이화, 소벨
-path = 'crop.png'
-img_1 = Image.open(f'{path}').convert('L') ## 여기다가 yolo로 crop된 이미지 넣으면 됩니당(그레이 변환된걸로)
+path = 'initial.png'
+img_1 = Image.open(f'{path}').convert('L') ## @@@여기다가 yolo로 crop된 이미지 넣으면 됩니당(그레이 변환된걸로)@@@
 Crop = np.array(img_1, 'uint8')
 
-img_sobel_x = cv2.Sobel(Crop, cv2.CV_64F, 1, 0, ksize=5) ## x-axis
+img_sobel_x = cv2.Sobel(Crop, cv2.CV_64F, 1, 0, ksize=5) ## width 측정용
 img_sobel_x = cv2.convertScaleAbs(img_sobel_x)
 
-img_sobel_y_k1 = cv2.Sobel(Crop, cv2.CV_64F, 0, 1, ksize=1) ## y-axis
+img_sobel_y_k1 = cv2.Sobel(Crop, cv2.CV_64F, 0, 1, ksize=1) ## Height 측정용
 img_sobel_y_k1 = cv2.convertScaleAbs(img_sobel_y_k1)
 
-img_sobel_y = cv2.Sobel(Crop, cv2.CV_64F, 0, 1, ksize=5) ## y-axis 
+img_sobel_y = cv2.Sobel(Crop, cv2.CV_64F, 0, 1, ksize=5) ## Water 경계면 측정용
 img_sobel_y = cv2.convertScaleAbs(img_sobel_y)
 
 
@@ -33,6 +34,7 @@ row = len(img_sobel_y[0])
 center = [int(column/2), int(row/2)]
 ########################################################################################
 # 사진 중앙 수평, 수직 라인 그려서 sobel 값 추출
+# segmentation center points 찾아서 
 for index in range(row):
     Value = int(img_sobel_x[int(column/2)][index])
     if Value >= 200:
@@ -107,27 +109,46 @@ for index in range(Bottom_point,0,-1):
         break
 
 ################################################################################
-# 계산
-width = right_point-left_point
+width = right_point - left_point
+mm = 0.24
+# widthmm = 39.20 / width
+widthmm = mm * width
+# heightmm = 102.20/ Height
+heightmm = mm * Height
+pixPmm = (widthmm + heightmm) / 2
+radiusmm = widthmm / 2
+Circle_Areamm = math.pi * (math.pow(radiusmm, 2))
+Bottle_Volumemm = round((Circle_Areamm * heightmm) * 0.001, 2)
 
-print("Width",width)
+Radius = width / 2
+Circle_Area = math.pi * (math.pow(Radius, 2))
+Bottle_Volume = Circle_Area * Height
+Water_percent = ((Bottom_point - Water_point) / Height) * 100
+print("Width", width, widthmm, heightmm)
+print("Bottle_Volume", Bottle_Volume, Bottle_Volumemm)
+print("Water_Percentage", Water_percent, '%')
+Bottle_Volume = round(Bottle_Volume)
+Water_percent = round(Water_percent)
+img1 = cv2.imread(IMG)
+img2 = cv2.putText(img1, f'Bottle_volume', (10, 30), cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 0), 2, cv2.LINE_AA)
 
-Radius = width/2
-Circle_Area = math.pi*(math.pow(Radius,2))
-Bottle_Volume = Circle_Area*Height
-Water_percent = ((Bottom_point-Water_point)/Height)*100
+img2 = cv2.putText(img1, f'{Bottle_Volumemm}cm2', (10, 50), cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 0), 2, cv2.LINE_AA)
+img2 = cv2.putText(img1, f'{Water_percent}%', (10, Water_point), cv2.FONT_HERSHEY_PLAIN, 5, (0, 0, 255), 5,
+                   cv2.LINE_AA)
 
-print("Bottle_Volume",Bottle_Volume)
-print("Water_Percentage",Water_percent,'%')
-
-
+IMG = IMG.split('/')[-1]
+cv2.imwrite(f'result_process.png', img2)
 ################################################################################
 
 
-plt.imshow(img_sobel_x)
+
+plt.imshow(img_sobel_x, cmap='gray')
 plt.show()
 
-plt.imshow(img_sobel_y)
+plt.imshow(img_sobel_y_k1, cmap='gray')
+plt.show()
+
+plt.imshow(img_sobel_y, cmap='gray')
 plt.show()
 
 plt.plot(Horizontal_Center, color='r')
